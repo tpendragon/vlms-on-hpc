@@ -8,14 +8,15 @@ from tqdm import tqdm
 from typing import Any, Dict, List, Union
 import io
 import base64
+import srsly
 
 pdf_path = "pdfs"
 md_path = "markdown"
-model: str = "/scratch/network/aj7878/.cache/huggingface/hub/models--nanonets--Nanonets-OCR-s/snapshots/3baad182cc87c65a1861f0c30357d3467e978172"
+model: str = '/scratch/network/aj7878/.cache/huggingface/hub/models--nanonets--Nanonets-OCR-s/snapshots/3baad182cc87c65a1861f0c30357d3467e978172'
 batch_size = 32
 max_tokens: int = 4096
 max_model_len: int = 8192
-gpu_memory_utilization: float = 0.8
+gpu_memory_utilization: float = 0.9
 
 llm = LLM(
     model=model,
@@ -61,16 +62,27 @@ def make_ocr_message(
         }
     ]
 
+
 pdfs = Path(pdf_path).glob('*')
 for pdf in pdfs:
+
     md_file = Path(md_path) / f"{pdf.stem}.md"
     if md_file.exists():
         continue
+
+    current_files = srsly.read_json("current_files.json")
+    if pdf.stem in current_files:
+        #print(f"Skipping {pdf.stem} as it is already being processed by another job.")
+        continue
+    else:
+        current_files.append(pdf.stem)
+        srsly.write_json("current_files.json", current_files)
+    
     pdf_images = []
     try:
         doc = pymupdf.open(pdf)
         for i, page in tqdm(enumerate(doc)):  # iterate through the pages
-            pix = page.get_pixmap(dpi=200)  
+            pix = page.get_pixmap(dpi=100)  
             img = pix.pil_image()
             pdf_images.append({
                 "image": img,
@@ -94,6 +106,11 @@ for pdf in pdfs:
                 markdown_text = output.outputs[0].text.strip()
                 pdf_text += markdown_text + "\n\n"     
         md_file.write_text(pdf_text, encoding='utf-8')
+        current_files = srsly.read_json("current_files.json")
+        if pdf.stem in current_files:
+            current_files.remove(pdf.stem)
+            srsly.write_json("current_files.json", current_files)
+
 
     except Exception as e:
         print(f"Error opening {pdf}: {e}")
