@@ -3,7 +3,7 @@
 This is a set of scripts that can be used to run text recognition (OCR/HTR) on Princeton's high-performance computing clusters.  
 
 The main goal is to
-- Download images from a IIIF endpoint
+- Download images from a IIIF endpoint or folder of PDF files
 - Download an open-source model from HuggingFace Hub
 - Recognize text in the images and save them as markdown
 
@@ -25,7 +25,7 @@ Alternatively, go to Adroit Cluster Shell Access from [myadroit.princeton.edu](h
 Once logged in, you'll be in your home directory on the login node. For me, it's `/home/aj7878` You have very limited space on the login node (server).
 
 ## A moment for housekeeping.
-When you're first setting things up, you'll need to tell the server to store your models and other data on the network drive rather than the login note. If you don't do this, you'll run out of disk space and nothing will work. Fortunately, there's an easy fix.
+When you're first setting things up, you'll need to tell the server to store your models and other data on the network drive rather than the login node. If you don't do this, you'll run out of disk space and nothing will work. Fortunately, there's an easy fix.
 
 
 On Adroit, run the following:
@@ -84,14 +84,14 @@ To do this:
 python fetch.py model <huggingface/repo-name> # default is "nanonets/Nanonets-OCR-s"
 ```
 
-I find it helpful to do a test run on the login node to check for errors.  With your virtual enviornment activated, you can run `python main.py`. If everything is set up properly, you'll get an error from vLLM that it can't find the GPU (the login nodes doesn't have one).
+I find it helpful to do a test run on the login node to check for errors.  With your virtual enviornment activated, you can run `python main.py`. If everything is set up properly, you'll get an error from vLLM that it can't find the GPU (the login node doesn't have one).
 
 ## Image files or PDFs?
 This project currently supports the processing of image collections from a IIIF endpoint like Princeton's [DPUL](https://dpul.princeton.edu/) or a folder of PDF files. 
 
 ### Image collections 
 
-Most major libraries and museums support the International Image Interoperability Framework (IIIF). There's useful list of members of the IIIF community [here](https://iiif.io/guides/finding_resources/). In addition to providing a viewer for researchers, IIIF serves data about the collection to the web. You can access this data in a IIIF manifest. This is a package of metadata in the JSON format that includes information about the materials, metadata and links for all of the images in the collection. 
+Many major libraries and museums support the International Image Interoperability Framework (IIIF). There's useful list of members of the IIIF community [here](https://iiif.io/guides/finding_resources/). In addition to providing a viewer for researchers, IIIF serves data about the collection to the web. You can access this data in a IIIF manifest. This is a package of metadata in JSON format that includes information about the materials, metadata and links for all of the images in the collection. 
 
 For example, [this manuscript](https://www.loc.gov/resource/music.musapschmidt-10006011/?sp=1) from the Library of Congress includes a link to 
 
@@ -101,7 +101,8 @@ For example, [this manuscript](https://www.loc.gov/resource/music.musapschmidt-1
 If you click on the link, you'll go to: https://www.loc.gov/item/musapschmidt06012/manifest.json
 That is the manifest's URI (Uniform Resource Identifier) a link that returns the data you need.
 
-You may also find the IIIF logo.  !["IIIF logo. Alternating blue and red letters that spell IIIF"](https://eap.bl.uk/modules/custom/cogapp_collection_pages/images/logo_iiif.png)
+You may also find the IIIF logo.  !["IIIF logo. Alternating blue and red letters that spell IIIF"](https://iiif.io/assets/images/logos/logo-sm.png)  
+
 [This item](https://eap.bl.uk/archive-file/EAP699-9-1) from the British Library's Endangered Archives Programme has the logo in the lower right corner. If you click on it, you get the JSON data for the IIIF manifest. 
 For this example, the URI looks like this: https://eap.bl.uk/archive-file/EAP699-9-1/manifest?manifest=https%3A//eap.bl.uk/archive-file/EAP699-9-1/manifest
 
@@ -110,7 +111,7 @@ It's up to you to find relevant collections for your work and to find the IIIF m
 This project includes a script to download a manifest and associated images. To run it, type:
 
 ```bash
-python fetch.py images <IIIF manifest URL>
+python fetch.py images <IIIF manifest URI>
 ```
 
 All images will be saved in the img folder.  This is the same folder that will hold the markdown files. For example `0001.jpg` will have a `0001.md` file in the same folder. 
@@ -183,13 +184,16 @@ For example:
   GPU utilization  [|||||||||                                      18%]
   GPU memory usage [|||||                                          10%]
 ```
+You can get the same information by typing `jobstats 2556969`
 
 ### PDFs 
 
-Processing PDFs is very similar to processing images.  The `main_pdf.py` script is very similar to `main.py`. It loads files in a `pdfs` directory and checks that they are valid PDF files. Note that they don't have to have the `.pdf` suffix, we're checking the contents of the file, not its name. We then convert each page of the PDF into an image in memory.  The intermediate images aren't saved to disk. One important parameter to know about is image dpi. On line 85 of `main_pdf.py`, you'll find 
+Processing PDFs is very similar to processing images.  The `main_pdf.py` script is very similar to `main.py`. It loads files in a `pdfs` directory and checks that they are valid PDF files. Note that they don't have to have the `.pdf` suffix. We're checking the contents of the file, not its name. We then convert each page of the PDF into an image in memory.  The intermediate images aren't saved to disk. One important parameter to know about is image dpi. On line 85 of `main_pdf.py`, you'll find 
+
 ```python
 pix = page.get_pixmap(dpi=100)  
 ```
+
 The dpi setting controls the size and detail of the generated image. For most typed documents, 50-100 dots per square inch is more than sufficent. Relatively low resolution uses less memory and is significantly faster.  The image is converted into image tokens, so a smaller image has fewer tokens.  If the resolution is too high, the model may not be able to fit all of the image and text tokens into its context length.
 
 For example, 
@@ -237,6 +241,7 @@ sbatch job.pdf.slurm
 
 To move you images and text off the Adroit servers, you can do the following 
 
+### Create a HuggingFace Dataset and push to the hub
 Log in to Huggingface with your token
 ```bash 
 hugginface-cli login
@@ -247,6 +252,17 @@ Now you can push all your files to HuggingFace Hub with
 python fetch.py to-hub <your HF username>/<new repo name> 
 ```
 By default, your dataset is private. You can publish as public by adding `--public`
+
+### Use SCP
+While connected to Adroit, find the files that you'd like to transfer.
+For example, my markdown output files might be in: 
+`/scratch/network/myusername/quice/markdown`
+
+Open the terminal on your computer. 
+You can copy the folder from Adroit to your computer with the `scp` command. 
+`scp <origin> <destination>`
+for example, 
+`scp myusername@adroit.princeton.edu:/scratch/network/myusername/quice/markdown/ ~/Downloads/`
 
 Further reading: 
 - https://researchcomputing.princeton.edu/support/knowledge-base/hugging-face
