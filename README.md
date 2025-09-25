@@ -11,6 +11,7 @@ For Princeton faculty, staff, and students, you can request an account on Adroit
 
 Regularly updated documentation on Adroit can be found [here](https://researchcomputing.princeton.edu/systems/adroit) 
 
+## Connect to the Server
 To connect to the Adroit cluster 
 
 ```bash
@@ -23,14 +24,40 @@ Alternatively, go to Adroit Cluster Shell Access from [myadroit.princeton.edu](h
 
 Once logged in, you'll be in your home directory on the login node. For me, it's `/home/aj7878` You have very limited space on the login node (server).
 
+## A moment for housekeeping.
+When you're first setting things up, you'll need to tell the server to store your models and other data on the network drive rather than the login note. If you don't do this, you'll run out of disk space and nothing will work. Fortunately, there's an easy fix.
+
+
+On Adroit, run the following:
+```bash 
+$ rsync -avu $HOME/.conda /scratch/network/$USER/
+$ rm -Rf $HOME/.conda
+$ cd $HOME && ln -s /scratch/network/$USER/.conda .conda
+```
+
+NVIDIA has a cache directory that can quickly take up all the space in your home directory. To move that to the network drive, run:
+```bash 
+$ rsync -avu $HOME/.triton /scratch/network/$USER/
+$ rm -Rf $HOME/.triton
+$ cd $HOME && ln -s /scratch/network/$USER/.triton .triton
+```
+
+Finally, HuggingFace needs to know about the network drive. We'll create an enviornment variable that tells 🤗 to save model data in our network cache directory. [Reserch computing recommends](https://researchcomputing.princeton.edu/support/knowledge-base/hugging-face) that you save this so that it's set automatically on boot.    
+```bash 
+$ echo "export HF_HOME=/scratch/network/$USER/.cache/huggingface/" >> $HOME/.bashrc
+```
+You'll then need to log out of adroit and log back in. 
+
+
+## Clone the Code
 You will want to navigate to your folder in the shared network drive. For example, 
 ```bash
 cd /scratch/network/<username>
 ```
 
-Create a folder for your project and change to it
+Choose a good name for your project, make a new directory (`mkdir`), and change directory (`cd`)
 ```bash
-mkdir quiche && cd quiche
+mkdir my_awesome_project && cd my_awesome_project
 ```
 
 Once in your directory, you can clone this repository into your folder
@@ -38,29 +65,56 @@ Once in your directory, you can clone this repository into your folder
 git clone https://github.com/PULdischo/vlms-on-hpc.git .
 ```
 
-now activate conda to manage Python dependencies
+now activate Anaconda (`conda`) to manage Python dependencies
 ```bash 
 module load anaconda3/2024.6
 ``` 
-> note that a newer version may be available 
+> note that a newer version may be available. You can enter `module avail` to list the available conda modules.
 
 create a virtual enviornment 
 ```bash
 conda env create -f conda_env.yml
 ```
 
-The HPC node does not have access to the Internet, so you need to download all model and image files in advance on the login node. 
+The HPC node does not have access to the Internet, so you need to download all model and image files in advance on the login node. You can find Hugging Face Hub models here: https://huggingface.co/models
+
 
 To do this: 
 ```bash
-python fetch.py model <huggingface/repo-name>
+python fetch.py model <huggingface/repo-name> # default is "nanonets/Nanonets-OCR-s"
 ```
-then 
+
+I find it helpful to do a test run on the login node to check for errors.  With your virtual enviornment activated, you can run `python main.py`. If everything is set up properly, you'll get an error from vLLM that it can't find the GPU (the login nodes doesn't have one).
+
+## Image files or PDFs?
+This project currently supports the processing of image collections from a IIIF endpoint like Princeton's [DPUL](https://dpul.princeton.edu/) or a folder of PDF files. 
+
+### Image collections 
+
+Most major libraries and museums support the International Image Interoperability Framework (IIIF). There's useful list of members of the IIIF community [here](https://iiif.io/guides/finding_resources/). In addition to providing a viewer for researchers, IIIF serves data about the collection to the web. You can access this data in a IIIF manifest. This is a package of metadata in the JSON format that includes information about the materials, metadata and links for all of the images in the collection. 
+
+For example, [this manuscript](https://www.loc.gov/resource/music.musapschmidt-10006011/?sp=1) from the Library of Congress includes a link to 
+
+>  IIIF Presentation Manifest  
+>  [Manifest (JSON/LD)](https://www.loc.gov/item/musapschmidt06012/manifest.json)  
+
+If you click on the link, you'll go to: https://www.loc.gov/item/musapschmidt06012/manifest.json
+That is the manifest's URI (Uniform Resource Identifier) a link that returns the data you need.
+
+You may also find the IIIF logo.  !["IIIF logo. Alternating blue and red letters that spell IIIF"](https://eap.bl.uk/modules/custom/cogapp_collection_pages/images/logo_iiif.png)
+[This item](https://eap.bl.uk/archive-file/EAP699-9-1) from the British Library's Endangered Archives Programme has the logo in the lower right corner. If you click on it, you get the JSON data for the IIIF manifest. 
+For this example, the URI looks like this: https://eap.bl.uk/archive-file/EAP699-9-1/manifest?manifest=https%3A//eap.bl.uk/archive-file/EAP699-9-1/manifest
+
+It's up to you to find relevant collections for your work and to find the IIIF manifest's URI. But, once you have that, you can download all the images and their metadata.  
+
+This project includes a script to download a manifest and associated images. To run it, type:
+
 ```bash
 python fetch.py images <IIIF manifest URL>
 ```
 
 All images will be saved in the img folder.  This is the same folder that will hold the markdown files. For example `0001.jpg` will have a `0001.md` file in the same folder. 
+
 
 Before running your job, you'll want to look at and update the job.slurm file. 
 To open an editor in the terminal, type `nano job.slurm`
@@ -129,6 +183,57 @@ For example:
   GPU utilization  [|||||||||                                      18%]
   GPU memory usage [|||||                                          10%]
 ```
+
+### PDFs 
+
+Processing PDFs is very similar to processing images.  The `main_pdf.py` script is very similar to `main.py`. It loads files in a `pdfs` directory and checks that they are valid PDF files. Note that they don't have to have the `.pdf` suffix, we're checking the contents of the file, not its name. We then convert each page of the PDF into an image in memory.  The intermediate images aren't saved to disk. One important parameter to know about is image dpi. On line 85 of `main_pdf.py`, you'll find 
+```python
+pix = page.get_pixmap(dpi=100)  
+```
+The dpi setting controls the size and detail of the generated image. For most typed documents, 50-100 dots per square inch is more than sufficent. Relatively low resolution uses less memory and is significantly faster.  The image is converted into image tokens, so a smaller image has fewer tokens.  If the resolution is too high, the model may not be able to fit all of the image and text tokens into its context length.
+
+For example, 
+```bash 
+Error opening pdfs/156002856211550797464202220250174197763: The decoder prompt (length 10896) is longer than the maximum model length of 8192. 
+```
+
+The main_pdf script will process any files that you put in `pdfs` and save the result in a `markdown` folder. The files will have the same name, but a different suffix.  
+
+Before running your job, you'll want to look at and update the job.pdf.slurm file. 
+To open an editor in the terminal, type `nano job.pdf.slurm`
+The main things to note and ajust are:
+- your job name
+- the number of GPUs. Start with one. If you get a CUDA memory error, you can add them as needed. For example, `gpu:2` calls for two GPUs. 
+- update the email for notifications (mail-user)
+
+The file will look something like this: 
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=quiche        # create a short name for your job
+#SBATCH --nodes=1                # node count
+#SBATCH --ntasks=1               # total number of tasks across all nodes
+#SBATCH --cpus-per-task=1        # cpu-cores per task (>1 if multi-threaded tasks)
+#SBATCH --mem=20G                 # total memory (RAM) per node
+#SBATCH --time=04:00:00          # total run time limit (HH:MM:SS)
+#SBATCH --gres=gpu:1
+#SBATCH --mail-type=end          # send email when job ends
+#SBATCH --mail-type=fail         # send email if job fails
+#SBATCH --mail-user=<username>@princeton.edu
+
+module purge
+module load anaconda3/2024.6
+conda activate vlm
+HF_HUB_OFFLINE=1
+python main_pdf.py
+```
+
+When you have the model downloaded, the images ready and everything is set to go
+```bash
+sbatch job.pdf.slurm
+```
+
+## Moving your files from Adroit
 
 To move you images and text off the Adroit servers, you can do the following 
 
