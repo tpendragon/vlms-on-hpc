@@ -24,30 +24,6 @@ Alternatively, go to Adroit Cluster Shell Access from [myadroit.princeton.edu](h
 
 Once logged in, you'll be in your home directory on the login node. For me, it's `/home/aj7878` You have very limited space on the login node (server).
 
-## A moment for housekeeping.
-When you're first setting things up, you'll need to tell the server to store your models and other data on the network drive rather than the login node. If you don't do this, you'll run out of disk space and nothing will work. Fortunately, there's an easy fix.
-
-
-On Adroit, run the following:
-```bash 
-$ rsync -avu $HOME/.conda /scratch/network/$USER/
-$ rm -Rf $HOME/.conda
-$ cd $HOME && ln -s /scratch/network/$USER/.conda .conda
-```
-
-NVIDIA has a cache directory that can quickly take up all the space in your home directory. To move that to the network drive, run:
-```bash 
-$ rsync -avu $HOME/.triton /scratch/network/$USER/
-$ rm -Rf $HOME/.triton
-$ cd $HOME && ln -s /scratch/network/$USER/.triton .triton
-```
-
-Finally, HuggingFace needs to know about the network drive. We'll create an enviornment variable that tells 🤗 to save model data in our network cache directory. [Reserch computing recommends](https://researchcomputing.princeton.edu/support/knowledge-base/hugging-face) that you save this so that it's set automatically on boot.    
-```bash 
-$ echo "export HF_HOME=/scratch/network/$USER/.cache/huggingface/" >> $HOME/.bashrc
-```
-You'll then need to log out of adroit and log back in. 
-
 
 ## Clone the Code
 You will want to navigate to your folder in the shared network drive. For example, 
@@ -85,6 +61,30 @@ python fetch.py model <huggingface/repo-name> # default is "nanonets/Nanonets-OC
 ```
 
 I find it helpful to do a test run on the login node to check for errors.  With your virtual enviornment activated, you can run `python main.py`. If everything is set up properly, you'll get an error from vLLM that it can't find the GPU (the login node doesn't have one).
+
+## A moment for housekeeping.
+When you're first setting things up, you'll need to tell the server to store your models and other data on the network drive rather than the login node. If you don't do this, you'll run out of disk space and nothing will work. Fortunately, there's an easy fix.
+
+
+On Adroit, run the following:
+```bash 
+$ rsync -avu $HOME/.conda /scratch/network/$USER/
+$ rm -Rf $HOME/.conda
+$ cd $HOME && ln -s /scratch/network/$USER/.conda .conda
+```
+
+NVIDIA has a cache directory that can quickly take up all the space in your home directory. To move that to the network drive, run:
+```bash 
+$ rsync -avu $HOME/.triton /scratch/network/$USER/
+$ rm -Rf $HOME/.triton
+$ cd $HOME && ln -s /scratch/network/$USER/.triton .triton
+```
+
+Finally, HuggingFace needs to know about the network drive. We'll create an enviornment variable that tells 🤗 to save model data in our network cache directory. [Reserch computing recommends](https://researchcomputing.princeton.edu/support/knowledge-base/hugging-face) that you save this so that it's set automatically on boot.    
+```bash 
+$ echo "export HF_HOME=/scratch/network/$USER/.cache/huggingface/" >> $HOME/.bashrc
+```
+You'll then need to log out of adroit and log back in. 
 
 ## Image files or PDFs?
 This project currently supports the processing of image collections from a IIIF endpoint like Princeton's [DPUL](https://dpul.princeton.edu/) or a folder of PDF files. 
