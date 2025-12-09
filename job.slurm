@@ -11,7 +11,7 @@
 #SBATCH --mail-user=apjanco@princeton.edu
 
 module purge
-module load anaconda3/2024.6
+module load anaconda3/2025.6
 conda activate vlm
 HF_HUB_OFFLINE=1
 python main.py

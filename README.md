@@ -3,9 +3,9 @@
 This is a set of scripts that can be used to run text recognition (OCR/HTR) on Princeton's high-performance computing clusters.  
 
 The main goal is to
-- Download images from a IIIF endpoint or folder of PDF files
+- Create a folder of images to process. These can be downloaded from a IIIF endpoint, a bunch of PDF files, HEIC files from your phone...
 - Download an open-source model from HuggingFace Hub
-- Recognize text in the images and save them as markdown
+- Recognize text in the images and save them as markdown, a spreadsheet or searchable static webpage.
 
 For Princeton faculty, staff, and students, you can request an account on Adroit [here](https://forms.rc.princeton.edu/registration/).
 
@@ -37,7 +37,7 @@ mkdir my_awesome_project && cd my_awesome_project
 ```
 
 Once in your directory, you can clone this repository into your folder
-```
+```bash
 git clone https://github.com/PULdischo/vlms-on-hpc.git .
 ```
 

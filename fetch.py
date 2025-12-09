@@ -1,7 +1,6 @@
 import typer
 import srsly
 from huggingface_hub import snapshot_download
-from iiif_download import IIIFManifest
 from pathlib import Path
 from datasets import Dataset
 
@@ -9,12 +8,14 @@ app = typer.Typer()
 
 
 @app.command()
-def model(repo_id: str = "nanonets/Nanonets-OCR-s"):
+def model(
+        repo_id: str
+    ):
     """
     Downloads a model from Hugging Face Hub.
     """
-    snapshot_download(repo_id=repo_id, repo_type="model")
-
+    model_path =snapshot_download(repo_id=repo_id, repo_type="model")
+    print(f"Model downloaded to: {model_path}")
 
 @app.command()
 def images(
@@ -23,8 +24,8 @@ def images(
     """
     Downloads images from a IIIF manifest.
     """
-    manifest = IIIFManifest(manifest_url)
-    manifest.download()
+    print(manifest_url)
+    print('in progress...need to add this code')
 
 @app.command()
 def to_hub(
