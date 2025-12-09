@@ -43,7 +43,7 @@ git clone https://github.com/PULdischo/vlms-on-hpc.git .
 
 now activate Anaconda (`conda`) to manage Python dependencies
 ```bash 
-module load anaconda3/2024.6
+module load anaconda3/2025.6
 ``` 
 > note that a newer version may be available. You can enter `module avail` to list the available conda modules.
 
