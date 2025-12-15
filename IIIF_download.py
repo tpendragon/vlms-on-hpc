@@ -4,40 +4,56 @@ from PIL import Image
 from io import BytesIO
 from tqdm import tqdm
 import math
+import json 
 import httpx
 import asyncio
-from IIIFTileSource import IIIFTileSource, zoom_to_scale
+from IIIFTileSource import zoom_to_scale
 
-def iiif_download(manifest_url: str, sample_size: int = None):
-    result = zoom_to_scale(manifest_url, scale_factor)     # Full scale (100%)
-    # no img folder create one
-    if os.path.exists('img') == False:
-        os.mkdir('img')
+def iiif_tile_download(manifest_url: str, output_folder:str, scale_factor: float = 0.8, testing: bool = False):
+    # Fetch the manifest
+    try:
+        if manifest_url.startswith(('http://', 'https://')):
+            header = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/11"
+            }
+            response = httpx.get(manifest_url, headers=header)
+            response.raise_for_status()
+            manifest = response.json()
+        else:
+            # Treat as local file path
+            with open(manifest_url, 'r', encoding='utf-8') as f:
+                manifest = json.load(f)
+    except Exception as e:
+        raise ValueError(f"Failed to load manifest from {manifest_url}: {e}")
+    
+    
+    image_tile_uris = zoom_to_scale(manifest_url, scale_factor)     
+    # no output_folder folder create one
+    os.makedirs(output_folder, exist_ok=True)
 
-    images = result.get('images', [])
-    if sample_size and sample_size < len(images):
-        images = images[:sample_size]
+    images = image_tile_uris.get('images', [])
+    if testing:
+        images = images[:10]
     info = {}
-    info['url'] = result['manifest_uri']
+    info['url'] = manifest_url
     info['images'] = {}
-    if manifest:
-        info['metadata'] = manifest.get('metadata', {})
-        info['label'] = manifest.get('label', '')
+    info['metadata'] = manifest.get('metadata', {})
+    info['label'] = manifest.get('label', '')
+    
     for image in tqdm(images):
         image_filename = "_".join(image['image_id'].split('/')[4:6])
         if '.jp2' in image_filename:
-        image_filename = image_filename.replace('.jp2', '.jpg')
-        info['images'][image_filename] = image['image_id']
+            image_filename = image_filename.replace('.jp2', '.jpg')
+            info['images'][image_filename] = image['image_id']
         else:
-        image_filename = image_filename + ".jpg"
-        info['images'][image_filename] = image['image_id']
+            image_filename = image_filename + ".jpg"
+            info['images'][image_filename] = image['image_id']
 
         # Get image info to determine proper grid dimensions
         tile_urls = image.get("tile_urls", [] )
         img_width = image['width']
         img_height = image['height']
         scale_factor = image['scaleFactor']
-        max_level = image['max_level']
 
         # Calculate the actual tile grid dimensions for this zoom level
         tile_size = 256  # Standard IIIF tile size
@@ -48,11 +64,7 @@ def iiif_download(manifest_url: str, sample_size: int = None):
 
         # Fetch all tiles
         tile_images = []
-        #for url in tqdm(tile_urls, desc="Fetching tiles"):
-        #    response = requests.get(url)
-        #    img = Image.open(BytesIO(response.content))
-        #    tile_images.append(img)
-
+        
         # Fetch all tiles
         async def fetch_tile(client, url, idx):
             try:
@@ -68,7 +80,6 @@ def iiif_download(manifest_url: str, sample_size: int = None):
             async with httpx.AsyncClient(limits=limits, timeout=timeout) as client:
                 tasks = [fetch_tile(client, u, i) for i, u in enumerate(urls)]
                 return await asyncio.gather(*tasks)
-        print('fetching ', len(tile_urls), ' tiles')
         results = asyncio.run(fetch_all(tile_urls))
 
         # Recreate tile_images in the original order; insert a blank tile on failure
@@ -105,6 +116,6 @@ def iiif_download(manifest_url: str, sample_size: int = None):
 
                     combined_image.paste(tile, (pos_x, pos_y))
                     tile_index += 1
-        combined_image.save(f"/content/img/{image_filename}")
+        combined_image.save(f"{output_folder}/{image_filename}")
 
-    srsly.write_json('/content/img/info.json',info)
+    srsly.write_json(f'{output_folder}/info.json',info)

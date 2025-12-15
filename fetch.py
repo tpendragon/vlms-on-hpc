@@ -3,6 +3,7 @@ import srsly
 from huggingface_hub import snapshot_download
 from pathlib import Path
 from datasets import Dataset
+from IIIF_download import iiif_tile_download
 
 app = typer.Typer()
 
@@ -21,12 +22,14 @@ def model(
 @app.command()
 def images(
     manifest_url: str,
+    output_folder:str = 'img',
+    scale_factor: float = 0.8,
+    testing: bool = False
 ):
     """
     Downloads images from a IIIF manifest.
     """
-    print(manifest_url)
-    print('in progress...need to add this code')
+    iiif_tile_download(manifest_url, output_folder, scale_factor, testing)
 
 @app.command()
 def to_hub(

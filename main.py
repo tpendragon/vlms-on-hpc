@@ -13,6 +13,8 @@ register_heif_opener()
 
 input_path = "images"
 output_path = "markdown"
+Path(output_path).mkdir(parents=True, exist_ok=True)
+
 model_repo = "nanonets/Nanonets-OCR-s"
 
 if Path('model_info.json').exists():
