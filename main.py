@@ -1,9 +1,6 @@
 from PIL import Image
-import torch
-from transformers import AutoProcessor, AutoModelForImageTextToText, pipeline, Qwen2VLForConditionalGeneration
 from vllm import LLM, SamplingParams
 from pathlib import Path 
-import pymupdf
 from tqdm import tqdm
 from typing import Any, Dict, List, Union
 import io
@@ -14,9 +11,19 @@ from pillow_heif import register_heif_opener
 # Register the HEIF opener
 register_heif_opener()
 
-input_path = "input"
+input_path = "images"
 output_path = "markdown"
-model: str = '/scratch/network/aj7878/.cache/huggingface/hub/models--nanonets--Nanonets-OCR-s/snapshots/3baad182cc87c65a1861f0c30357d3467e978172'
+model_repo = "nanonets/Nanonets-OCR-s"
+
+if Path('model_info.json').exists():
+    # Read the model_info.json file created by fetch.py model command
+    model_info = srsly.read_json("model_info.json")
+    model = model_info.get(model_repo)
+    assert model is not None, f"Model path for {model_repo} not found in model_info.json"
+else:
+    # Enter model path directly
+    model = '/scratch/network/aj7878/.cache/huggingface/hub/models--nanonets--Nanonets-OCR-s/snapshots/3baad182cc87c65a1861f0c30357d3467e978172'
+
 batch_size = 32
 max_tokens: int = 4096
 max_model_len: int = 8192
@@ -47,7 +54,6 @@ def make_ocr_message(
         pil_img = Image.open(io.BytesIO(image["bytes"]))
     elif isinstance(image, str):
         pil_img = Image.open(image)
-    #TODO add support for PDF and HEIC files
     else:
         raise ValueError(f"Unsupported image type: {type(image)}")
 
@@ -67,76 +73,60 @@ def make_ocr_message(
         }
     ]
 
-# create a generator that will yield the images 
-
-def img_gen(input_path: str, pdf_dpi: int = 150):
+def files_to_process(input_path: str):
+    """Identify files that need to be processed.
+     Skip files that already have markdown or are being processed by other jobs.
+     
+     Args:
+         input_path (str): Path to the input files.
+         
+         Returns:
+         List of file paths to process.
+    """
     file_paths = Path(input_path).glob('*')
     images_to_process = []
     for file_path in file_paths:
+        # Check if markdown file already exists
         md_file = Path(output_path) / f"{file_path.stem}.md"
         if md_file.exists():
             continue
 
+        # Check if file is already being processed by other jobs
         current_files = srsly.read_json("current_files.json")
         if file_path.stem in current_files:
-            #print(f"Skipping {pdf.stem} as it is already being processed by another job.")
             continue
         else:
             current_files.append(file_path.stem)
             srsly.write_json("current_files.json", current_files)
-        
-        
-        
-        if file_path.suffix.lower() in [".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".gif", ".heic"]:
-            try:
-                img = Image.open(file_path)
-                images_to_process.append({
-                    "image": img,
-                    "page": file_path.name,
+
+        images_to_process.append({
+                    "file_path": file_path,
+                    "md_file": md_file
                 })
-            except Exception as e:
-                print(f"Error opening {file_path}: {e}")
-                continue
+    return images_to_process
+
+
+def batch_generator(images_to_process: list, batch_size: int):
+    
+    image_batches = [
+        images_to_process[i:i + batch_size] for i in range(0, len(images_to_process), batch_size)
+    ]
+    for batch in image_batches:
+        yield [{"image": Image.open(img["file_path"]), "file_path": img["file_path"], "md_file": img["md_file"]} for img in batch]                
         
-        if file_path.suffix.lower() == ".pdf":
-            
-            pdf_images = []
-            try:
-                doc = pymupdf.open(file_path)
-                for i, page in tqdm(enumerate(doc)):  # iterate through the pages
-                    pix = page.get_pixmap(dpi=pdf_dpi)  
-                    img = pix.pil_image()
-                    pdf_images.append({
-                        "image": img,
-                        "page": file_path.stem + "_" + str(i + 1),
-                    })
-            except Exception as e:
-                print(f"Error opening {file_path}: {e}")
-                continue
+images_to_process = files_to_process(input_path)
 
-            pdf_images.sort(key=lambda x: x["page"])
-            images_to_process.extend(pdf_images)
-    total = len(images_to_process)
-    for img in images_to_process:
-        yield img, total
-       
-image_batches = [
-    images_to_process[i:i + batch_size] for i in range(0, len(images_to_process), batch_size)
-]
-
-pdf_text = """"""
-for batch in tqdm(image_batches, desc=f"Processing batches"):
+for batch in tqdm(batch_generator(images_to_process, batch_size), desc=f"Processing batches"):
     batch_messages = [make_ocr_message(page["image"]) for page in batch]
     
     # Process with vLLM
     outputs = llm.chat(batch_messages, sampling_params)
 
     # Extract markdown from outputs
-    for output in outputs:
+    for img, output in zip(batch, outputs):
         markdown_text = output.outputs[0].text.strip()
-        pdf_text += markdown_text + "\n\n"     
-md_file.write_text(pdf_text, encoding='utf-8')
-current_files = srsly.read_json("current_files.json")
-if pdf.stem in current_files:
-    current_files.remove(pdf.stem)
-    srsly.write_json("current_files.json", current_files)
+        img["md_file"].write_text(markdown_text, encoding='utf-8')
+        current_files = srsly.read_json("current_files.json")
+        if img["file_path"].stem in current_files:
+            current_files.remove(img["file_path"].stem)
+            srsly.write_json("current_files.json", current_files)

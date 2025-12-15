@@ -14,8 +14,9 @@ def model(
     """
     Downloads a model from Hugging Face Hub.
     """
-    model_path =snapshot_download(repo_id=repo_id, repo_type="model")
-    print(f"Model downloaded to: {model_path}")
+    output_path = snapshot_download(repo_id=repo_id, repo_type="model")
+    srsly.write_json("model_info.json", {repo_id: output_path})
+    print(f"Model downloaded to: {output_path}")
 
 @app.command()
 def images(
