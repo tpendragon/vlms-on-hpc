@@ -29,11 +29,14 @@ logger = logging.getLogger(__name__)
 register_heif_opener()
 
 # Configuration constants
-INPUT_PATH = "images"
+INPUT_PATH = "img"
 OUTPUT_PATH = "markdown"
 MODEL_REPO = "nanonets/Nanonets-OCR-s"
 CURRENT_FILES_JSON = "current_files.json"
 MODEL_INFO_JSON = "model_info.json"
+
+# Supported image extensions
+SUPPORTED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.tif', '.webp', '.heic', '.heif'}
 
 # Model parameters
 BATCH_SIZE = 32
@@ -190,6 +193,7 @@ def files_to_process(input_path: str) -> List[Dict[str, Path]]:
     Identify files that need to be processed.
     
     Skip files that already have markdown or are being processed by other jobs.
+    Only process files with supported image extensions.
     
     Args:
         input_path: Path to the input files directory
@@ -204,6 +208,12 @@ def files_to_process(input_path: str) -> List[Dict[str, Path]]:
     for file_path in file_paths:
         # Skip directories
         if not file_path.is_file():
+            logger.debug(f"Skipping {file_path.name}: not a file")
+            continue
+        
+        # Skip non-image files
+        if file_path.suffix.lower() not in SUPPORTED_EXTENSIONS:
+            logger.debug(f"Skipping {file_path.name}: not a supported image format")
             continue
             
         # Check if markdown file already exists
