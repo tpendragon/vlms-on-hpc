@@ -23,19 +23,23 @@ if Path('model_info.json').exists():
 else:
     # Enter model path directly
     model = '/scratch/network/aj7878/.cache/huggingface/hub/models--nanonets--Nanonets-OCR-s/snapshots/3baad182cc87c65a1861f0c30357d3467e978172'
-
+    assert Path(model).exists(), f"Model path {model} does not exist."
+    
 batch_size = 32
 max_tokens: int = 4096
 max_model_len: int = 8192
 gpu_memory_utilization: float = 0.9
 
-llm = LLM(
-    model=model,
-    trust_remote_code=True,
-    max_model_len=max_model_len,
-    gpu_memory_utilization=gpu_memory_utilization,
-    limit_mm_per_prompt={"image": 1},
-)
+try:
+    llm = LLM(
+        model=model,
+        trust_remote_code=True,
+        max_model_len=max_model_len,
+        gpu_memory_utilization=gpu_memory_utilization,
+        limit_mm_per_prompt={"image": 1},
+    )
+except RuntimeError as e:
+    print(f"vLLM requires GPU.")
 
 sampling_params = SamplingParams(
     temperature=0.0,  # Deterministic for OCR
