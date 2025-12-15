@@ -1,5 +1,5 @@
 """
-OCR Processing Script for Vision-Language Models on HPC
+OCR/HTR Processing Script for Vision-Language Models on HPC
 
 This script processes images using vLLM and a vision-language model for OCR tasks.
 It supports batch processing, concurrent job handling, and various image formats.
@@ -31,7 +31,7 @@ register_heif_opener()
 # Configuration constants
 INPUT_PATH = "img"
 OUTPUT_PATH = "markdown"
-MODEL_REPO = "nanonets/Nanonets-OCR-s"
+MODEL_REPO = "Qwen/Qwen3-VL-2B-Instruct"
 CURRENT_FILES_JSON = "current_files.json"
 MODEL_INFO_JSON = "model_info.json"
 
