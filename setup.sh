@@ -1,7 +1,7 @@
 cd /scratch/network/$USER
 git clone https://github.com/PULdischo/vlms-on-hpc.git
 module load anaconda3/2025.6
-conda env create -f conda_env.yml
+conda env create -f /scratch/network/$USER/vlms-on-hpc/conda_env.yml
 
 rsync -avu $HOME/.conda /scratch/network/$USER/
 rm -Rf $HOME/.conda
