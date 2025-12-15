@@ -176,6 +176,7 @@ dependencies:
       - pandas==2.3.1
       - partial-json-parser==0.2.1.1.post6
       - pillow==11.3.0
+      - pillow-heif==1.1.1
       - posthog==5.4.0
       - prometheus-client==0.22.1
       - prometheus-fastapi-instrumentator==7.1.0
