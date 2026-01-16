@@ -63,7 +63,7 @@ def make_ocr_message(
     ]
 
 
-pdfs = Path(pdf_path).glob('*')
+pdfs = Path(pdf_path).glob('**/*')
 for pdf in pdfs:
 
     md_file = Path(md_path) / f"{pdf.stem}.md"
