@@ -1,5 +1,5 @@
 cd /scratch/network/$USER
-git clone https://github.com/PULdischo/vlms-on-hpc.git
+git clone https://github.com/tpendragon/vlms-on-hpc.git
 module load anaconda3/2025.6
 conda env create -f /scratch/network/$USER/vlms-on-hpc/conda_env.yml
 

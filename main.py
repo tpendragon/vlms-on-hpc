@@ -31,7 +31,7 @@ register_heif_opener()
 # Configuration constants
 INPUT_PATH = "img"
 OUTPUT_PATH = "markdown"
-MODEL_REPO = "Qwen/Qwen3-VL-2B-Instruct"
+MODEL_REPO = "rednote-hilab/dots.mocr"
 CURRENT_FILES_JSON = "current_files.json"
 MODEL_INFO_JSON = "model_info.json"
 
@@ -40,8 +40,8 @@ SUPPORTED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.tif'
 
 # Model parameters
 BATCH_SIZE = 32
-MAX_TOKENS = 4096
-MAX_MODEL_LEN = 8192
+MAX_TOKENS = 24000
+MAX_MODEL_LEN = 32768
 GPU_MEMORY_UTILIZATION = 0.9
 
 # Default OCR prompt
